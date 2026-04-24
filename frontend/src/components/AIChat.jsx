@@ -9,24 +9,26 @@ function AIChat() {
   const dispatch = useDispatch()
   const interaction = useSelector((state) => state.interaction)
 
-  const extractInteractionData = (text) => {
-    const data = {}
-    const hcpIdMatch = text.match(/hcp[_\s]*id["\s]*:?\s*(\d+)/i)
-    if (hcpIdMatch) data.hcp_id = Number(hcpIdMatch[1])
-
-    const dateMatch = text.match(/date[_\s]*time["\s]*:?\s*["']([^"']+)["']/i)
-    if (dateMatch) data.date_time = dateMatch[1]
-
-    const typeMatch = text.match(/interaction[_\s]*type["\s]*:?\s*["']?(in_person|virtual|phone)["']?/i)
-    if (typeMatch) data.interaction_type = typeMatch[1]
-
-    const topicsMatch = text.match(/topics[_\s]*discussed["\s]*:?\s*["']([^"']+)["']/i)
-    if (topicsMatch) data.topics_discussed = topicsMatch[1]
-
-    const sentimentMatch = text.match(/hcp[_\s]*sentiment["\s]*:?\s*["']?(positive|neutral|negative)["']?/i)
-    if (sentimentMatch) data.hcp_sentiment = sentimentMatch[1]
-
-    return Object.keys(data).length > 0 ? data : null
+  const parseToolResponse = (text) => {
+    try {
+      const data = JSON.parse(text)
+      if (data.status === 'success' && data.interaction) {
+        const i = data.interaction
+        return {
+          hcp_id: i.hcp_id,
+          date_time: i.date_time,
+          interaction_type: i.interaction_type,
+          topics_discussed: i.topics_discussed,
+          hcp_sentiment: i.hcp_sentiment,
+          follow_up_actions: i.follow_up_actions,
+          attendees: i.attendees,
+          materials: i.materials,
+        }
+      }
+    } catch (e) {
+      // Not JSON, try regex extraction as fallback
+    }
+    return null
   }
 
   const handleSend = async () => {
@@ -49,9 +51,10 @@ function AIChat() {
 
       setMessages((prev) => [...prev, { role: 'assistant', content: aiContent }])
 
-      const extractedData = extractInteractionData(aiContent)
-      if (extractedData) {
-        dispatch(setInteractionData(extractedData))
+      // Try to parse structured JSON from tool response
+      const toolData = parseToolResponse(aiContent)
+      if (toolData) {
+        dispatch(setInteractionData(toolData))
       }
     } catch (error) {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Error: ' + error.message }])

@@ -1,46 +1,36 @@
 import { useSelector, useDispatch } from 'react-redux'
-import { setField, addFollowUpAction, removeFollowUpAction, addAttendee, removeAttendee, addMaterial, removeMaterial, resetForm } from '../store/interactionSlice'
+import { resetForm } from '../store/interactionSlice'
 import { useState } from 'react'
 
 function InteractionForm() {
   const interaction = useSelector((state) => state.interaction)
   const dispatch = useDispatch()
-  const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
 
-  const handleChange = (field) => (e) => {
-    dispatch(setField({ field, value: e.target.value }))
-  }
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      const response = await fetch('http://localhost:8000/api/interactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          hcp_id: Number(interaction.hcpId),
-          date_time: interaction.dateTime,
-          interaction_type: interaction.interactionType,
-          topics_discussed: interaction.topicsDiscussed,
-          hcp_sentiment: interaction.sentiment,
-          follow_up_actions: interaction.followUpActions,
-          attendees: interaction.attendees.filter(a => a.name),
-          materials: interaction.materials.filter(m => m.materialName),
-        }),
-      })
-      if (response.ok) {
-        alert('Interaction saved successfully!')
-      }
-    } catch (error) {
-      alert('Error saving interaction: ' + error.message)
-    } finally {
-      setSaving(false)
-    }
+  const handleCopy = () => {
+    const text = `HCP: ${interaction.hcpName || 'N/A'}
+Date: ${interaction.dateTime || 'N/A'}
+Type: ${interaction.interactionType}
+Sentiment: ${interaction.sentiment}
+Topics: ${interaction.topicsDiscussed || 'N/A'}
+Attendees: ${interaction.attendees.map(a => a.name).join(', ') || 'None'}
+Materials: ${interaction.materials.map(m => m.materialName).join(', ') || 'None'}
+Follow-ups: ${interaction.followUpActions.join('; ') || 'None'}`
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-xl font-semibold text-gray-800">Interaction Details</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold text-gray-800">Interaction Details</h2>
+        <span className="text-xs text-gray-400">AI-Controlled</span>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+        This form is controlled by the AI Assistant. Describe your interaction in the chat panel to populate this form.
+      </div>
 
       {/* HCP Name */}
       <div>
@@ -48,9 +38,8 @@ function InteractionForm() {
         <input
           type="text"
           value={interaction.hcpName}
-          onChange={handleChange('hcpName')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter HCP name"
+          readOnly
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
         />
       </div>
 
@@ -60,9 +49,8 @@ function InteractionForm() {
         <input
           type="number"
           value={interaction.hcpId}
-          onChange={handleChange('hcpId')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter HCP ID"
+          readOnly
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
         />
       </div>
 
@@ -72,8 +60,8 @@ function InteractionForm() {
         <input
           type="datetime-local"
           value={interaction.dateTime}
-          onChange={handleChange('dateTime')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          readOnly
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
         />
       </div>
 
@@ -82,8 +70,8 @@ function InteractionForm() {
         <label className="block text-sm font-medium text-gray-700 mb-1">Interaction Type</label>
         <select
           value={interaction.interactionType}
-          onChange={handleChange('interactionType')}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
         >
           <option value="in_person">In Person</option>
           <option value="virtual">Virtual</option>
@@ -96,88 +84,46 @@ function InteractionForm() {
         <label className="block text-sm font-medium text-gray-700 mb-1">Topics Discussed</label>
         <textarea
           value={interaction.topicsDiscussed}
-          onChange={handleChange('topicsDiscussed')}
+          readOnly
           rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="Enter topics discussed..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700"
+          placeholder="AI will populate this field..."
         />
       </div>
 
       {/* Attendees */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Attendees</label>
-        {interaction.attendees.map((attendee, index) => (
-          <div key={index} className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={attendee.name}
-              onChange={(e) => {
-                const updated = [...interaction.attendees]
-                updated[index] = { ...updated[index], name: e.target.value }
-                dispatch(setField({ field: 'attendees', value: updated }))
-              }}
-              placeholder="Name"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <input
-              type="text"
-              value={attendee.role || ''}
-              onChange={(e) => {
-                const updated = [...interaction.attendees]
-                updated[index] = { ...updated[index], role: e.target.value }
-                dispatch(setField({ field: 'attendees', value: updated }))
-              }}
-              placeholder="Role"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <button onClick={() => dispatch(removeAttendee(index))} className="px-3 py-2 bg-red-500 text-white rounded-md">×</button>
+        {interaction.attendees.length === 0 ? (
+          <p className="text-sm text-gray-400">No attendees added yet</p>
+        ) : (
+          <div className="space-y-2">
+            {interaction.attendees.map((attendee, index) => (
+              <div key={index} className="flex gap-2 text-sm text-gray-700">
+                <span className="font-medium">{attendee.name}</span>
+                {attendee.role && <span className="text-gray-400">({attendee.role})</span>}
+              </div>
+            ))}
           </div>
-        ))}
-        <button onClick={() => dispatch(addAttendee())} className="text-sm text-blue-600 hover:underline">+ Add Attendee</button>
+        )}
       </div>
 
       {/* Materials Shared */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Materials Shared</label>
-        {interaction.materials.map((material, index) => (
-          <div key={index} className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={material.materialName}
-              onChange={(e) => {
-                const updated = [...interaction.materials]
-                updated[index] = { ...updated[index], materialName: e.target.value }
-                dispatch(setField({ field: 'materials', value: updated }))
-              }}
-              placeholder="Material Name"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <input
-              type="number"
-              value={material.quantity}
-              onChange={(e) => {
-                const updated = [...interaction.materials]
-                updated[index] = { ...updated[index], quantity: Number(e.target.value) }
-                dispatch(setField({ field: 'materials', value: updated }))
-              }}
-              placeholder="Qty"
-              className="w-20 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <input
-              type="text"
-              value={material.materialType || ''}
-              onChange={(e) => {
-                const updated = [...interaction.materials]
-                updated[index] = { ...updated[index], materialType: e.target.value }
-                dispatch(setField({ field: 'materials', value: updated }))
-              }}
-              placeholder="Type"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <button onClick={() => dispatch(removeMaterial(index))} className="px-3 py-2 bg-red-500 text-white rounded-md">×</button>
+        {interaction.materials.length === 0 ? (
+          <p className="text-sm text-gray-400">No materials logged yet</p>
+        ) : (
+          <div className="space-y-2">
+            {interaction.materials.map((material, index) => (
+              <div key={index} className="flex gap-2 text-sm text-gray-700">
+                <span>{material.materialName}</span>
+                <span className="text-gray-400">x{material.quantity}</span>
+                {material.materialType && <span className="text-gray-400">({material.materialType})</span>}
+              </div>
+            ))}
           </div>
-        ))}
-        <button onClick={() => dispatch(addMaterial())} className="text-sm text-blue-600 hover:underline">+ Add Material</button>
+        )}
       </div>
 
       {/* HCP Sentiment */}
@@ -185,13 +131,13 @@ function InteractionForm() {
         <label className="block text-sm font-medium text-gray-700 mb-1">HCP Sentiment</label>
         <div className="flex gap-4">
           {['positive', 'neutral', 'negative'].map((sentiment) => (
-            <label key={sentiment} className="flex items-center gap-2">
+            <label key={sentiment} className={`flex items-center gap-2 ${interaction.sentiment === sentiment ? 'font-semibold' : ''}`}>
               <input
                 type="radio"
                 name="sentiment"
                 value={sentiment}
                 checked={interaction.sentiment === sentiment}
-                onChange={handleChange('sentiment')}
+                disabled
                 className="text-blue-600"
               />
               <span className="capitalize">{sentiment}</span>
@@ -203,39 +149,30 @@ function InteractionForm() {
       {/* Follow-up Actions */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Follow-up Actions</label>
-        {interaction.followUpActions.map((action, index) => (
-          <div key={index} className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={action}
-              onChange={(e) => {
-                const updated = [...interaction.followUpActions]
-                updated[index] = e.target.value
-                dispatch(setField({ field: 'followUpActions', value: updated }))
-              }}
-              placeholder="Action item"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-            />
-            <button onClick={() => dispatch(removeFollowUpAction(index))} className="px-3 py-2 bg-red-500 text-white rounded-md">×</button>
-          </div>
-        ))}
-        <button onClick={() => dispatch(addFollowUpAction(''))} className="text-sm text-blue-600 hover:underline">+ Add Action</button>
+        {interaction.followUpActions.length === 0 ? (
+          <p className="text-sm text-gray-400">No follow-up actions yet</p>
+        ) : (
+          <ul className="list-disc list-inside space-y-1">
+            {interaction.followUpActions.map((action, index) => (
+              <li key={index} className="text-sm text-gray-700">{action}</li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {/* Buttons */}
       <div className="flex gap-4 pt-4">
         <button
-          onClick={handleSave}
-          disabled={saving}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+          onClick={handleCopy}
+          className="px-6 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
         >
-          {saving ? 'Saving...' : 'Save Interaction'}
+          {copied ? 'Copied!' : 'Copy Details'}
         </button>
         <button
           onClick={() => dispatch(resetForm())}
           className="px-6 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
         >
-          Reset
+          Reset Form
         </button>
       </div>
     </div>

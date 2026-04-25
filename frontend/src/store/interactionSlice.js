@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  hcpId: '',
+  hcpId: null,
   hcpName: '',
   dateTime: new Date().toISOString().slice(0, 16),
   interactionType: 'in_person',

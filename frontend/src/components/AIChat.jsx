@@ -12,7 +12,8 @@ function AIChat() {
   const parseToolResponse = (text) => {
     try {
       const data = JSON.parse(text)
-      if (data.status === 'success' && data.interaction) {
+      // Check if this is a tool response with interaction data
+      if (data.action && data.interaction) {
         const i = data.interaction
         return {
           hcp_id: i.hcp_id,
@@ -40,7 +41,7 @@ function AIChat() {
     setIsLoading(true)
 
     try {
-      const response = await fetch('http://localhost:8000/api/ai/chat', {
+      const response = await fetch(`${window.location.protocol}//${window.location.hostname}:8000/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),

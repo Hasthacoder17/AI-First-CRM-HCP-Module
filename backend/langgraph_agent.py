@@ -28,6 +28,16 @@ def invoke_agent(user_message: str) -> str:
     try:
         result = agent_graph.invoke({"messages": [HumanMessage(content=user_message)]})
         if result and "messages" in result:
+            # Look for tool messages with JSON output
+            for msg in reversed(result["messages"]):
+                if hasattr(msg, 'content') and msg.content.startswith('{'):
+                    try:
+                        import json
+                        json.loads(msg.content)
+                        return msg.content
+                    except:
+                        pass
+            # Fallback: return last message content
             final_message = result["messages"][-1]
             return final_message.content if hasattr(final_message, 'content') else str(final_message)
         return "Agent returned no response"

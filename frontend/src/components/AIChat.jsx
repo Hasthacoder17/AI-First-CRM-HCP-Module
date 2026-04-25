@@ -41,11 +41,17 @@ function AIChat() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`${window.location.protocol}//${window.location.hostname}:8000/api/ai/chat`, {
+      // Use relative URL to leverage Vite dev server proxy (avoids CORS)
+      const response = await fetch(`/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: input }),
+        credentials: 'include',
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
 
       const result = await response.json()
       const aiContent = result.response || 'No response'

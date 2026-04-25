@@ -1,6 +1,7 @@
 from langchain_core.tools import tool
 from database import SessionLocal
 import crud
+import models
 import schemas
 from datetime import datetime
 from typing import Optional

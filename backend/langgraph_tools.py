@@ -7,11 +7,28 @@ from datetime import datetime
 from typing import Optional
 import json
 
+def _normalize_attendee(attendee):
+    """Normalize attendee dict from LLM to match AttendeeCreate schema."""
+    if isinstance(attendee, dict):
+        return {"name": attendee.get("name") or attendee.get("full_name", ""), "role": attendee.get("role")}
+    return {"name": str(attendee), "role": None}
+
+def _normalize_material(material):
+    """Normalize material dict from LLM to match MaterialSharedCreate schema."""
+    if isinstance(material, dict):
+        return {
+            "material_name": material.get("material_name") or material.get("name") or material.get("title", ""),
+            "quantity": material.get("quantity", 1),
+            "material_type": material.get("material_type") or material.get("type")
+        }
+    return {"material_name": str(material), "quantity": 1, "material_type": None}
+
 @tool
 def log_interaction(hcp_id: int, date_time: str, interaction_type: str, topics_discussed: Optional[str] = None,
                      hcp_sentiment: str = "neutral", follow_up_actions: Optional[list] = None,
                      attendees: Optional[list] = None, materials: Optional[list] = None) -> str:
-    """Log a new interaction with an HCP. Use this when the user describes a meeting or interaction with a healthcare professional."""
+    """Log a new interaction with an HCP. Use this when the user describes a meeting or interaction with a healthcare professional.
+    IMPORTANT: If you only have the HCP's name (not hcp_id), use the find_hcp tool FIRST to get the hcp_id before calling this tool."""
     db = SessionLocal()
     try:
         interaction_data = schemas.InteractionCreate(
@@ -21,8 +38,8 @@ def log_interaction(hcp_id: int, date_time: str, interaction_type: str, topics_d
             topics_discussed=topics_discussed,
             hcp_sentiment=hcp_sentiment,
             follow_up_actions=follow_up_actions or [],
-            attendees=[schemas.AttendeeCreate(**a) for a in (attendees or [])],
-            materials=[schemas.MaterialSharedCreate(**m) for m in (materials or [])]
+            attendees=[schemas.AttendeeCreate(**_normalize_attendee(a)) for a in (attendees or [])],
+            materials=[schemas.MaterialSharedCreate(**_normalize_material(m)) for m in (materials or [])]
         )
         result = crud.create_interaction(db, interaction_data)
         # Return structured JSON for UI population
@@ -87,6 +104,25 @@ def edit_interaction(interaction_id: int, date_time: Optional[str] = None, inter
         return json.dumps({"action": "edit_interaction", "status": "error", "message": f"Interaction {interaction_id} not found"})
     except Exception as e:
         return json.dumps({"action": "edit_interaction", "status": "error", "message": str(e)})
+    finally:
+        db.close()
+
+
+@tool
+def find_hcp(name: str) -> str:
+    """Find an HCP by name. Use this FIRST when the user mentions an HCP by name to get their hcp_id before logging interactions or searching history."""
+    db = SessionLocal()
+    try:
+        hcp = crud.find_hcp_by_name(db, name)
+        if hcp:
+            return json.dumps({
+                "action": "find_hcp",
+                "status": "success",
+                "hcp": {"id": hcp.id, "name": hcp.name, "specialty": hcp.specialty, "email": hcp.email}
+            })
+        return json.dumps({"action": "find_hcp", "status": "not_found", "message": f"No HCP found matching '{name}'"})
+    except Exception as e:
+        return json.dumps({"action": "find_hcp", "status": "error", "message": str(e)})
     finally:
         db.close()
 

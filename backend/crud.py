@@ -16,6 +16,9 @@ def create_hcp(db: Session, hcp: schemas.HCPCreate) -> models.HCP:
 def get_hcps(db: Session, skip: int = 0, limit: int = 100) -> List[models.HCP]:
     return db.query(models.HCP).offset(skip).limit(limit).all()
 
+def find_hcp_by_name(db: Session, name: str) -> Optional[models.HCP]:
+    return db.query(models.HCP).filter(models.HCP.name.ilike(f"%{name}%")).first()
+
 
 def get_hcp(db: Session, hcp_id: int) -> Optional[models.HCP]:
     return db.query(models.HCP).filter(models.HCP.id == hcp_id).first()
